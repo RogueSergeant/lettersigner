@@ -394,22 +394,22 @@
             if (database) {
                 database.ref('petitions/' + pdfId).set(pdfInfo);
             } else {
-                let storedPDFs = JSON.parse(localStorage.getItem('complaintLetterPDFs') || '{}');
+                let storedPDFs = JSON.parse(localStorage.getItem('petitionPDFs') || '{}');
                 storedPDFs[pdfId] = pdfInfo;
-                localStorage.setItem('complaintLetterPDFs', JSON.stringify(storedPDFs));
+                localStorage.setItem('petitionPDFs', JSON.stringify(storedPDFs));
             }
         }
 
         // Load available PDFs from storage
         function loadAvailablePDFs() {
             if (database) {
-                database.ref('letters').on('value', (snapshot) => {
+                database.ref('petitions').on('value', (snapshot) => {
                     availablePDFs = snapshot.val() || {};
                     updatePDFSelectors();
                     updateAdminPDFList();
                 });
             } else {
-                const storedPDFs = localStorage.getItem('complaintLetterPDFs');
+                const storedPDFs = localStorage.getItem('petitionPDFs');
                 availablePDFs = storedPDFs ? JSON.parse(storedPDFs) : {};
                 updatePDFSelectors();
                 updateAdminPDFList();
@@ -485,16 +485,16 @@
             
             if (confirm('Are you sure you want to delete this complaint letter? This will also delete all associated signatures.')) {
                 if (database) {
-                    database.ref('letters/' + pdfId).remove();
+                    database.ref('petitions/' + pdfId).remove();
                     database.ref('signatures/' + pdfId).remove();
                 } else {
-                    let storedPDFs = JSON.parse(localStorage.getItem('complaintLetterPDFs') || '{}');
+                    let storedPDFs = JSON.parse(localStorage.getItem('petitionPDFs') || '{}');
                     delete storedPDFs[pdfId];
-                    localStorage.setItem('complaintLetterPDFs', JSON.stringify(storedPDFs));
+                    localStorage.setItem('petitionPDFs', JSON.stringify(storedPDFs));
                     
-                    let storedSigs = JSON.parse(localStorage.getItem('complaintSignatures') || '{}');
+                    let storedSigs = JSON.parse(localStorage.getItem('petitionSignatures') || '{}');
                     delete storedSigs[pdfId];
-                    localStorage.setItem('complaintSignatures', JSON.stringify(storedSigs));
+                    localStorage.setItem('petitionSignatures', JSON.stringify(storedSigs));
                 }
                 
                 loadAvailablePDFs();
@@ -609,12 +609,12 @@
                 database.ref('signatures/' + signature.pdfId + '/' + signature.id).set(signature);
             } else {
                 // Fallback to local storage
-                let storedSigs = JSON.parse(localStorage.getItem('complaintSignatures') || '{}');
+                let storedSigs = JSON.parse(localStorage.getItem('petitionSignatures') || '{}');
                 if (!storedSigs[signature.pdfId]) {
                     storedSigs[signature.pdfId] = {};
                 }
                 storedSigs[signature.pdfId][signature.id] = signature;
-                localStorage.setItem('complaintSignatures', JSON.stringify(storedSigs));
+                localStorage.setItem('petitionSignatures', JSON.stringify(storedSigs));
                 
                 // Update local signatures array for current PDF
                 signatures = Object.values(storedSigs[signature.pdfId] || {});
@@ -640,7 +640,7 @@
                 });
             } else {
                 // Load from local storage
-                const stored = localStorage.getItem('complaintSignatures');
+                const stored = localStorage.getItem('petitionSignatures');
                 if (stored) {
                     const storedSigs = JSON.parse(stored);
                     signatures = Object.values(storedSigs[selectedPDFId] || {});
@@ -694,7 +694,7 @@
                     pdfSignatures.push(childSnapshot.val());
                 });
             } else {
-                const stored = localStorage.getItem('complaintSignatures');
+                const stored = localStorage.getItem('petitionSignatures');
                 if (stored) {
                     const storedSigs = JSON.parse(stored);
                     pdfSignatures = Object.values(storedSigs[selectedPdfId] || {});
@@ -857,7 +857,7 @@
                     };
 
                     // Save to new structure
-                    await database.ref('letters/' + migrationPdfId).set(migrationPdf);
+                    await database.ref('petitions/' + migrationPdfId).set(migrationPdf);
                     console.log('Migrated PDF to new structure');
                 }
 
