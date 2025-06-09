@@ -180,22 +180,52 @@
             <div class="admin-section">
                 <h3>Admin Controls</h3>
                 <div class="form-group">
-                    <label for="pdfUpload">Upload Petition PDF:</label>
+                    <label for="pdfUpload">Upload New Petition PDF:</label>
                     <input type="file" id="pdfUpload" accept=".pdf" onchange="handlePDFUpload(event)">
                 </div>
-                <button onclick="downloadPetitionWithSignatures()">Download Petition with Signatures</button>
+                <div class="form-group">
+                    <label for="pdfTitle">PDF Title:</label>
+                    <input type="text" id="pdfTitle" placeholder="Enter a title for this petition">
+                </div>
                 <div id="uploadStatus"></div>
+                
+                <div class="form-group" style="margin-top: 20px;">
+                    <label for="adminPdfSelect">Download Petition with Signatures:</label>
+                    <select id="adminPdfSelect">
+                        <option value="">Select a petition...</option>
+                    </select>
+                    <button onclick="downloadPetitionWithSignatures()" style="margin-left: 10px;">Download Selected</button>
+                </div>
+                
+                <div id="managePdfs" style="margin-top: 20px;">
+                    <h4>Manage Petitions:</h4>
+                    <div id="pdfList"></div>
+                </div>
+            </div>
+
+            <!-- PDF Selection -->
+            <div id="pdfSelectionSection">
+                <h3>Available Petitions</h3>
+                <div class="form-group">
+                    <label for="userPdfSelect">Select a petition to sign:</label>
+                    <select id="userPdfSelect" onchange="selectPDF()">
+                        <option value="">Choose a petition...</option>
+                    </select>
+                </div>
             </div>
 
             <!-- PDF Viewer -->
             <div id="pdfSection" class="hidden">
-                <h3>Current Letter</h3>
+                <h3 id="pdfTitle">Current Letter</h3>
                 <iframe id="pdfViewer" class="pdf-viewer"></iframe>
             </div>
 
             <!-- Signature Section -->
             <div class="signature-section">
                 <h3>Add Your Signature</h3>
+                <div id="signatureNote" class="hidden" style="background: #fff3cd; padding: 10px; border-radius: 4px; margin-bottom: 15px; color: #856404;">
+                    <strong>Note:</strong> Please select a petition above before signing.
+                </div>
                 <div class="form-group">
                     <label>Draw your signature below:</label>
                     <canvas id="signatureCanvas" class="signature-canvas" width="400" height="150"></canvas>
@@ -273,12 +303,14 @@
         let isDrawing = false;
         let signatures = [];
         let isAdmin = false;
+        let availablePDFs = {};
+        let selectedPDFId = null;
 
         // Initialize app
         document.addEventListener('DOMContentLoaded', function() {
             initializeSignatureCanvas();
+            loadAvailablePDFs();
             loadSignatures();
-            loadUploadedPDF();
         });
 
         // Password protection
@@ -303,6 +335,8 @@
 
         function showAdminControls() {
             document.querySelector('.admin-section').style.display = 'block';
+            updateAdminPDFList();
+            addMigrationButton();
         }
 
         function hideAdminControls() {
@@ -319,14 +353,34 @@
         // PDF Upload handling
         function handlePDFUpload(event) {
             const file = event.target.files[0];
+            const title = document.getElementById('pdfTitle').value.trim();
+            
+            if (!title) {
+                document.getElementById('uploadStatus').innerHTML = '<span class="error">Please enter a title for the petition.</span>';
+                return;
+            }
+            
             if (file && file.type === 'application/pdf') {
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    uploadedPDF = e.target.result;
-                    savePDFToStorage(uploadedPDF);
-                    document.getElementById('pdfViewer').src = uploadedPDF;
-                    document.getElementById('pdfSection').classList.remove('hidden');
-                    document.getElementById('uploadStatus').innerHTML = '<span class="success">PDF uploaded successfully!</span>';
+                    const pdfData = e.target.result;
+                    const pdfId = Date.now().toString();
+                    
+                    const pdfInfo = {
+                        id: pdfId,
+                        title: title,
+                        data: pdfData,
+                        uploadDate: new Date().toISOString(),
+                        signatureCount: 0
+                    };
+                    
+                    savePDFToStorage(pdfId, pdfInfo);
+                    document.getElementById('uploadStatus').innerHTML = '<span class="success">PDF "' + title + '" uploaded successfully!</span>';
+                    document.getElementById('pdfTitle').value = '';
+                    event.target.value = '';
+                    
+                    // Refresh the PDF lists
+                    loadAvailablePDFs();
                 };
                 reader.readAsDataURL(file);
             } else {
@@ -335,32 +389,115 @@
         }
 
         // Save PDF to storage
-        function savePDFToStorage(pdfData) {
+        function savePDFToStorage(pdfId, pdfInfo) {
             if (database) {
-                database.ref('petition/pdf').set(pdfData);
+                database.ref('petitions/' + pdfId).set(pdfInfo);
             } else {
-                localStorage.setItem('petitionPDF', pdfData);
+                let storedPDFs = JSON.parse(localStorage.getItem('petitionPDFs') || '{}');
+                storedPDFs[pdfId] = pdfInfo;
+                localStorage.setItem('petitionPDFs', JSON.stringify(storedPDFs));
             }
         }
 
-        // Load uploaded PDF from storage
-        function loadUploadedPDF() {
+        // Load available PDFs from storage
+        function loadAvailablePDFs() {
             if (database) {
-                database.ref('petition/pdf').once('value', (snapshot) => {
-                    const pdfData = snapshot.val();
-                    if (pdfData) {
-                        uploadedPDF = pdfData;
-                        document.getElementById('pdfViewer').src = uploadedPDF;
-                        document.getElementById('pdfSection').classList.remove('hidden');
-                    }
+                database.ref('petitions').on('value', (snapshot) => {
+                    availablePDFs = snapshot.val() || {};
+                    updatePDFSelectors();
+                    updateAdminPDFList();
                 });
             } else {
-                const stored = localStorage.getItem('petitionPDF');
-                if (stored) {
-                    uploadedPDF = stored;
-                    document.getElementById('pdfViewer').src = uploadedPDF;
-                    document.getElementById('pdfSection').classList.remove('hidden');
+                const storedPDFs = localStorage.getItem('petitionPDFs');
+                availablePDFs = storedPDFs ? JSON.parse(storedPDFs) : {};
+                updatePDFSelectors();
+                updateAdminPDFList();
+            }
+        }
+
+        // Update PDF selector dropdowns
+        function updatePDFSelectors() {
+            const userSelect = document.getElementById('userPdfSelect');
+            const adminSelect = document.getElementById('adminPdfSelect');
+            
+            // Clear existing options
+            userSelect.innerHTML = '<option value="">Choose a petition...</option>';
+            adminSelect.innerHTML = '<option value="">Select a petition...</option>';
+            
+            // Add options for each PDF
+            Object.values(availablePDFs).forEach(pdf => {
+                const userOption = new Option(pdf.title, pdf.id);
+                const adminOption = new Option(pdf.title, pdf.id);
+                userSelect.add(userOption);
+                adminSelect.add(adminOption);
+            });
+        }
+
+        // Update admin PDF management list
+        function updateAdminPDFList() {
+            if (!isAdmin) return;
+            
+            const listDiv = document.getElementById('pdfList');
+            listDiv.innerHTML = '';
+            
+            Object.values(availablePDFs).forEach(pdf => {
+                const div = document.createElement('div');
+                div.style.cssText = 'border: 1px solid #ddd; padding: 10px; margin: 5px 0; border-radius: 4px;';
+                div.innerHTML = `
+                    <strong>${pdf.title}</strong><br>
+                    <small>Uploaded: ${new Date(pdf.uploadDate).toLocaleDateString()}</small><br>
+                    <small>Signatures: <span id="count-${pdf.id}">${pdf.signatureCount || 0}</span></small><br>
+                    <button onclick="deletePDF('${pdf.id}')" style="margin-top: 5px; background: #e74c3c; color: white;">Delete</button>
+                `;
+                listDiv.appendChild(div);
+            });
+        }
+
+        // Select a PDF for viewing/signing
+        function selectPDF() {
+            const selectedId = document.getElementById('userPdfSelect').value;
+            if (!selectedId) {
+                document.getElementById('pdfSection').classList.add('hidden');
+                document.getElementById('signatureNote').classList.remove('hidden');
+                selectedPDFId = null;
+                return;
+            }
+            
+            selectedPDFId = selectedId;
+            const selectedPDF = availablePDFs[selectedId];
+            
+            if (selectedPDF) {
+                uploadedPDF = selectedPDF.data;
+                document.getElementById('pdfViewer').src = uploadedPDF;
+                document.getElementById('pdfTitle').textContent = selectedPDF.title;
+                document.getElementById('pdfSection').classList.remove('hidden');
+                document.getElementById('signatureNote').classList.add('hidden');
+                
+                // Load signatures for this specific PDF
+                loadSignatures();
+            }
+        }
+
+        // Delete a PDF (admin only)
+        function deletePDF(pdfId) {
+            if (!isAdmin) return;
+            
+            if (confirm('Are you sure you want to delete this petition? This will also delete all associated signatures.')) {
+                if (database) {
+                    database.ref('petitions/' + pdfId).remove();
+                    database.ref('signatures/' + pdfId).remove();
+                } else {
+                    let storedPDFs = JSON.parse(localStorage.getItem('petitionPDFs') || '{}');
+                    delete storedPDFs[pdfId];
+                    localStorage.setItem('petitionPDFs', JSON.stringify(storedPDFs));
+                    
+                    let storedSigs = JSON.parse(localStorage.getItem('petitionSignatures') || '{}');
+                    delete storedSigs[pdfId];
+                    localStorage.setItem('petitionSignatures', JSON.stringify(storedSigs));
                 }
+                
+                loadAvailablePDFs();
+                loadSignatures();
             }
         }
 
@@ -420,6 +557,11 @@
 
         // Signature submission
         function submitSignature() {
+            if (!selectedPDFId) {
+                document.getElementById('signatureStatus').innerHTML = '<span class="error">Please select a petition to sign first.</span>';
+                return;
+            }
+            
             const name = document.getElementById('signerName').value.trim();
             const flat = document.getElementById('flatNumber').value.trim();
             const building = document.getElementById('building').value;
@@ -440,6 +582,7 @@
 
             const signature = {
                 id: Date.now().toString(),
+                pdfId: selectedPDFId,
                 name: name,
                 flat: flat,
                 building: building,
@@ -462,19 +605,32 @@
         // Save signature to Firebase or local storage
         function saveSignature(signature) {
             if (database) {
-                database.ref('signatures/' + signature.id).set(signature);
+                database.ref('signatures/' + signature.pdfId + '/' + signature.id).set(signature);
             } else {
                 // Fallback to local storage
-                signatures.push(signature);
-                localStorage.setItem('petitionSignatures', JSON.stringify(signatures));
+                let storedSigs = JSON.parse(localStorage.getItem('petitionSignatures') || '{}');
+                if (!storedSigs[signature.pdfId]) {
+                    storedSigs[signature.pdfId] = {};
+                }
+                storedSigs[signature.pdfId][signature.id] = signature;
+                localStorage.setItem('petitionSignatures', JSON.stringify(storedSigs));
+                
+                // Update local signatures array for current PDF
+                signatures = Object.values(storedSigs[signature.pdfId] || {});
                 displaySignatures();
             }
         }
 
-        // Load signatures
+        // Load signatures for current selected PDF
         function loadSignatures() {
+            if (!selectedPDFId) {
+                signatures = [];
+                displaySignatures();
+                return;
+            }
+            
             if (database) {
-                database.ref('signatures').on('value', (snapshot) => {
+                database.ref('signatures/' + selectedPDFId).on('value', (snapshot) => {
                     signatures = [];
                     snapshot.forEach((childSnapshot) => {
                         signatures.push(childSnapshot.val());
@@ -485,9 +641,12 @@
                 // Load from local storage
                 const stored = localStorage.getItem('petitionSignatures');
                 if (stored) {
-                    signatures = JSON.parse(stored);
-                    displaySignatures();
+                    const storedSigs = JSON.parse(stored);
+                    signatures = Object.values(storedSigs[selectedPDFId] || {});
+                } else {
+                    signatures = [];
                 }
+                displaySignatures();
             }
         }
 
@@ -514,19 +673,41 @@
                 return;
             }
 
-            if (!uploadedPDF) {
-                alert('Please upload a petition PDF first.');
+            const selectedPdfId = document.getElementById('adminPdfSelect').value;
+            if (!selectedPdfId) {
+                alert('Please select a petition to download.');
                 return;
             }
 
-            if (signatures.length === 0) {
-                alert('No signatures to add to the petition.');
+            const selectedPDF = availablePDFs[selectedPdfId];
+            if (!selectedPDF) {
+                alert('Selected petition not found.');
+                return;
+            }
+
+            // Load signatures for this specific PDF
+            let pdfSignatures = [];
+            if (database) {
+                const snapshot = await database.ref('signatures/' + selectedPdfId).once('value');
+                snapshot.forEach((childSnapshot) => {
+                    pdfSignatures.push(childSnapshot.val());
+                });
+            } else {
+                const stored = localStorage.getItem('petitionSignatures');
+                if (stored) {
+                    const storedSigs = JSON.parse(stored);
+                    pdfSignatures = Object.values(storedSigs[selectedPdfId] || {});
+                }
+            }
+
+            if (pdfSignatures.length === 0) {
+                alert('No signatures found for this petition.');
                 return;
             }
 
             try {
                 // Convert base64 to array buffer
-                const pdfBytes = Uint8Array.from(atob(uploadedPDF.split(',')[1]), c => c.charCodeAt(0));
+                const pdfBytes = Uint8Array.from(atob(selectedPDF.data.split(',')[1]), c => c.charCodeAt(0));
                 
                 // Load the PDF
                 const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
@@ -547,8 +728,8 @@
                 const lineHeight = 80;
                 const minYPosition = 50;
 
-                for (let i = 0; i < signatures.length; i++) {
-                    const sig = signatures[i];
+                for (let i = 0; i < pdfSignatures.length; i++) {
+                    const sig = pdfSignatures[i];
                     
                     // Check if we need a new page
                     if (yPosition < minYPosition) {
@@ -612,7 +793,7 @@
                 
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `petition-with-signatures-${new Date().toISOString().split('T')[0]}.pdf`;
+                a.download = `${selectedPDF.title.replace(/[^a-zA-Z0-9]/g, '-')}-with-signatures-${new Date().toISOString().split('T')[0]}.pdf`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
@@ -621,6 +802,116 @@
             } catch (error) {
                 console.error('Error generating PDF:', error);
                 alert('Error generating PDF with signatures. Please try again.');
+            }
+        }
+
+        // MIGRATION FUNCTION - Run this once to migrate existing data
+        async function migrateExistingData() {
+            if (!database) {
+                alert('Firebase not available. Cannot perform migration.');
+                return;
+            }
+
+            if (!isAdmin) {
+                alert('Only administrators can run data migration.');
+                return;
+            }
+
+            if (!confirm('This will migrate your existing petition and signatures to the new multi-PDF structure. This should only be run ONCE. Continue?')) {
+                return;
+            }
+
+            try {
+                console.log('Starting migration...');
+
+                // Check if old structure exists
+                const oldPdfSnapshot = await database.ref('petition/pdf').once('value');
+                const oldPdfData = oldPdfSnapshot.val();
+                
+                const oldSignaturesSnapshot = await database.ref('signatures').once('value');
+                const oldSignatures = [];
+                oldSignaturesSnapshot.forEach((childSnapshot) => {
+                    const sig = childSnapshot.val();
+                    // Check if it's old format (no pdfId)
+                    if (!sig.pdfId) {
+                        oldSignatures.push(sig);
+                    }
+                });
+
+                if (!oldPdfData && oldSignatures.length === 0) {
+                    alert('No old data found to migrate.');
+                    return;
+                }
+
+                // Create a default PDF entry for existing data
+                const migrationPdfId = 'migration-' + Date.now().toString();
+                
+                if (oldPdfData) {
+                    const migrationPdf = {
+                        id: migrationPdfId,
+                        title: 'Original Petition (Migrated)',
+                        data: oldPdfData,
+                        uploadDate: new Date().toISOString(),
+                        signatureCount: oldSignatures.length
+                    };
+
+                    // Save to new structure
+                    await database.ref('petitions/' + migrationPdfId).set(migrationPdf);
+                    console.log('Migrated PDF to new structure');
+                }
+
+                // Migrate signatures to new structure
+                for (const signature of oldSignatures) {
+                    const updatedSignature = {
+                        ...signature,
+                        pdfId: migrationPdfId
+                    };
+                    
+                    await database.ref('signatures/' + migrationPdfId + '/' + signature.id).set(updatedSignature);
+                    
+                    // Remove old signature
+                    await database.ref('signatures/' + signature.id).remove();
+                }
+
+                // Remove old PDF structure
+                if (oldPdfData) {
+                    await database.ref('petition/pdf').remove();
+                }
+
+                console.log('Migration completed successfully');
+                alert(`Migration completed! Migrated 1 PDF and ${oldSignatures.length} signatures to new structure.`);
+                
+                // Refresh the interface
+                loadAvailablePDFs();
+
+            } catch (error) {
+                console.error('Migration error:', error);
+                alert('Migration failed: ' + error.message);
+            }
+        }
+
+        // Add migration button for admin (temporary)
+        function addMigrationButton() {
+            if (!isAdmin) return;
+            
+            const adminSection = document.querySelector('.admin-section');
+            if (adminSection && !document.getElementById('migrationButton')) {
+                const migrationDiv = document.createElement('div');
+                migrationDiv.style.cssText = 'margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 4px; border: 1px solid #ffeaa7;';
+                migrationDiv.innerHTML = `
+                    <h4 style="color: #856404; margin-top: 0;">Data Migration</h4>
+                    <p style="color: #856404; margin: 10px 0;">If you have existing petition data, click below to migrate it to the new multi-PDF structure:</p>
+                    <button id="migrationButton" onclick="migrateExistingData()" style="background: #f39c12; color: white;">Migrate Existing Data</button>
+                    <button onclick="hideMigrationSection()" style="background: #95a5a6; color: white; margin-left: 10px;">Hide Migration</button>
+                `;
+                adminSection.appendChild(migrationDiv);
+            }
+        }
+
+        function hideMigrationSection() {
+            const migrationDiv = document.querySelector('.admin-section > div:last-child');
+            if (migrationDiv) {
+                migrationDiv.style.display = 'none';
             }
         }
     </script>
