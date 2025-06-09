@@ -164,7 +164,7 @@
         <!-- Login Screen -->
         <div id="loginScreen" class="login-screen">
             <h1>Sign the Formal Complaint</h1>
-            <p>Please enter the password to access the petition:</p>
+            <p>Please enter the password to access the complaint letters:</p>
             <div class="form-group">
                 <input type="password" id="passwordInput" placeholder="Enter password">
             </div>
@@ -180,36 +180,36 @@
             <div class="admin-section">
                 <h3>Admin Controls</h3>
                 <div class="form-group">
-                    <label for="pdfUpload">Upload New Petition PDF:</label>
+                    <label for="pdfUpload">Upload New Complaint Letter PDF:</label>
                     <input type="file" id="pdfUpload" accept=".pdf" onchange="handlePDFUpload(event)">
                 </div>
                 <div class="form-group">
                     <label for="pdfTitle">PDF Title:</label>
-                    <input type="text" id="pdfTitle" placeholder="Enter a title for this petition">
+                    <input type="text" id="pdfTitle" placeholder="Enter a title for this complaint letter">
                 </div>
                 <div id="uploadStatus"></div>
                 
                 <div class="form-group" style="margin-top: 20px;">
-                    <label for="adminPdfSelect">Download Petition with Signatures:</label>
+                    <label for="adminPdfSelect">Download Complaint Letter with Signatures:</label>
                     <select id="adminPdfSelect">
-                        <option value="">Select a petition...</option>
+                        <option value="">Select a complaint letter...</option>
                     </select>
                     <button onclick="downloadPetitionWithSignatures()" style="margin-left: 10px;">Download Selected</button>
                 </div>
                 
                 <div id="managePdfs" style="margin-top: 20px;">
-                    <h4>Manage Petitions:</h4>
+                    <h4>Manage Complaint Letters:</h4>
                     <div id="pdfList"></div>
                 </div>
             </div>
 
             <!-- PDF Selection -->
             <div id="pdfSelectionSection">
-                <h3>Available Petitions</h3>
+                <h3>Available Complaint Letters</h3>
                 <div class="form-group">
-                    <label for="userPdfSelect">Select a petition to sign:</label>
+                    <label for="userPdfSelect">Select a complaint letter to sign:</label>
                     <select id="userPdfSelect" onchange="selectPDF()">
-                        <option value="">Choose a petition...</option>
+                        <option value="">Choose a complaint letter...</option>
                     </select>
                 </div>
             </div>
@@ -224,7 +224,7 @@
             <div class="signature-section">
                 <h3>Add Your Signature</h3>
                 <div id="signatureNote" class="hidden" style="background: #fff3cd; padding: 10px; border-radius: 4px; margin-bottom: 15px; color: #856404;">
-                    <strong>Note:</strong> Please select a petition above before signing.
+                    <strong>Note:</strong> Please select a complaint letter above before signing.
                 </div>
                 <div class="form-group">
                     <label>Draw your signature below:</label>
@@ -357,7 +357,7 @@
             const title = document.getElementById('pdfTitle').value.trim();
             
             if (!title) {
-                document.getElementById('uploadStatus').innerHTML = '<span class="error">Please enter a title for the petition.</span>';
+                document.getElementById('uploadStatus').innerHTML = '<span class="error">Please enter a title for the complaint letter.</span>';
                 return;
             }
             
@@ -394,22 +394,22 @@
             if (database) {
                 database.ref('petitions/' + pdfId).set(pdfInfo);
             } else {
-                let storedPDFs = JSON.parse(localStorage.getItem('petitionPDFs') || '{}');
+                let storedPDFs = JSON.parse(localStorage.getItem('complaintLetterPDFs') || '{}');
                 storedPDFs[pdfId] = pdfInfo;
-                localStorage.setItem('petitionPDFs', JSON.stringify(storedPDFs));
+                localStorage.setItem('complaintLetterPDFs', JSON.stringify(storedPDFs));
             }
         }
 
         // Load available PDFs from storage
         function loadAvailablePDFs() {
             if (database) {
-                database.ref('petitions').on('value', (snapshot) => {
+                database.ref('letters').on('value', (snapshot) => {
                     availablePDFs = snapshot.val() || {};
                     updatePDFSelectors();
                     updateAdminPDFList();
                 });
             } else {
-                const storedPDFs = localStorage.getItem('petitionPDFs');
+                const storedPDFs = localStorage.getItem('complaintLetterPDFs');
                 availablePDFs = storedPDFs ? JSON.parse(storedPDFs) : {};
                 updatePDFSelectors();
                 updateAdminPDFList();
@@ -422,8 +422,8 @@
             const adminSelect = document.getElementById('adminPdfSelect');
             
             // Clear existing options
-            userSelect.innerHTML = '<option value="">Choose a petition...</option>';
-            adminSelect.innerHTML = '<option value="">Select a petition...</option>';
+            userSelect.innerHTML = '<option value="">Choose a complaint letter...</option>';
+            adminSelect.innerHTML = '<option value="">Select a complaint letter...</option>';
             
             // Add options for each PDF
             Object.values(availablePDFs).forEach(pdf => {
@@ -483,18 +483,18 @@
         function deletePDF(pdfId) {
             if (!isAdmin) return;
             
-            if (confirm('Are you sure you want to delete this petition? This will also delete all associated signatures.')) {
+            if (confirm('Are you sure you want to delete this complaint letter? This will also delete all associated signatures.')) {
                 if (database) {
-                    database.ref('petitions/' + pdfId).remove();
+                    database.ref('letters/' + pdfId).remove();
                     database.ref('signatures/' + pdfId).remove();
                 } else {
-                    let storedPDFs = JSON.parse(localStorage.getItem('petitionPDFs') || '{}');
+                    let storedPDFs = JSON.parse(localStorage.getItem('complaintLetterPDFs') || '{}');
                     delete storedPDFs[pdfId];
-                    localStorage.setItem('petitionPDFs', JSON.stringify(storedPDFs));
+                    localStorage.setItem('complaintLetterPDFs', JSON.stringify(storedPDFs));
                     
-                    let storedSigs = JSON.parse(localStorage.getItem('petitionSignatures') || '{}');
+                    let storedSigs = JSON.parse(localStorage.getItem('complaintSignatures') || '{}');
                     delete storedSigs[pdfId];
-                    localStorage.setItem('petitionSignatures', JSON.stringify(storedSigs));
+                    localStorage.setItem('complaintSignatures', JSON.stringify(storedSigs));
                 }
                 
                 loadAvailablePDFs();
@@ -559,7 +559,7 @@
         // Signature submission
         function submitSignature() {
             if (!selectedPDFId) {
-                document.getElementById('signatureStatus').innerHTML = '<span class="error">Please select a petition to sign first.</span>';
+                document.getElementById('signatureStatus').innerHTML = '<span class="error">Please select a complaint letter to sign first.</span>';
                 return;
             }
             
@@ -609,12 +609,12 @@
                 database.ref('signatures/' + signature.pdfId + '/' + signature.id).set(signature);
             } else {
                 // Fallback to local storage
-                let storedSigs = JSON.parse(localStorage.getItem('petitionSignatures') || '{}');
+                let storedSigs = JSON.parse(localStorage.getItem('complaintSignatures') || '{}');
                 if (!storedSigs[signature.pdfId]) {
                     storedSigs[signature.pdfId] = {};
                 }
                 storedSigs[signature.pdfId][signature.id] = signature;
-                localStorage.setItem('petitionSignatures', JSON.stringify(storedSigs));
+                localStorage.setItem('complaintSignatures', JSON.stringify(storedSigs));
                 
                 // Update local signatures array for current PDF
                 signatures = Object.values(storedSigs[signature.pdfId] || {});
@@ -640,7 +640,7 @@
                 });
             } else {
                 // Load from local storage
-                const stored = localStorage.getItem('petitionSignatures');
+                const stored = localStorage.getItem('complaintSignatures');
                 if (stored) {
                     const storedSigs = JSON.parse(stored);
                     signatures = Object.values(storedSigs[selectedPDFId] || {});
@@ -670,19 +670,19 @@
         // Download petition with signatures
         async function downloadPetitionWithSignatures() {
             if (!isAdmin) {
-                alert('Only administrators can download the petition with signatures.');
+                alert('Only administrators can download the complaint letter with signatures.');
                 return;
             }
 
             const selectedPdfId = document.getElementById('adminPdfSelect').value;
             if (!selectedPdfId) {
-                alert('Please select a petition to download.');
+                alert('Please select a complaint letter to download.');
                 return;
             }
 
             const selectedPDF = availablePDFs[selectedPdfId];
             if (!selectedPDF) {
-                alert('Selected petition not found.');
+                alert('Selected complaint letter not found.');
                 return;
             }
 
@@ -694,7 +694,7 @@
                     pdfSignatures.push(childSnapshot.val());
                 });
             } else {
-                const stored = localStorage.getItem('petitionSignatures');
+                const stored = localStorage.getItem('complaintSignatures');
                 if (stored) {
                     const storedSigs = JSON.parse(stored);
                     pdfSignatures = Object.values(storedSigs[selectedPdfId] || {});
@@ -702,7 +702,7 @@
             }
 
             if (pdfSignatures.length === 0) {
-                alert('No signatures found for this petition.');
+                alert('No signatures found for this complaint letter.');
                 return;
             }
 
@@ -818,7 +818,7 @@
                 return;
             }
 
-            if (!confirm('This will migrate your existing petition and signatures to the new multi-PDF structure. This should only be run ONCE. Continue?')) {
+            if (!confirm('This will migrate your existing complaint letter and signatures to the new multi-PDF structure. This should only be run ONCE. Continue?')) {
                 return;
             }
 
@@ -850,14 +850,14 @@
                 if (oldPdfData) {
                     const migrationPdf = {
                         id: migrationPdfId,
-                        title: 'Original Petition (Migrated)',
+                        title: 'Original Complaint Letter (Migrated)',
                         data: oldPdfData,
                         uploadDate: new Date().toISOString(),
                         signatureCount: oldSignatures.length
                     };
 
                     // Save to new structure
-                    await database.ref('petitions/' + migrationPdfId).set(migrationPdf);
+                    await database.ref('letters/' + migrationPdfId).set(migrationPdf);
                     console.log('Migrated PDF to new structure');
                 }
 
@@ -880,7 +880,7 @@
                 }
 
                 console.log('Migration completed successfully');
-                alert(`Migration completed! Migrated 1 PDF and ${oldSignatures.length} signatures to new structure.`);
+                alert(`Migration completed! Migrated 1 complaint letter and ${oldSignatures.length} signatures to new structure.`);
                 
                 // Refresh the interface
                 loadAvailablePDFs();
@@ -901,7 +901,7 @@
                 migrationDiv.style.cssText = 'margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 4px; border: 1px solid #ffeaa7;';
                 migrationDiv.innerHTML = `
                     <h4 style="color: #856404; margin-top: 0;">Data Migration</h4>
-                    <p style="color: #856404; margin: 10px 0;">If you have existing petition data, click below to migrate it to the new multi-PDF structure:</p>
+                    <p style="color: #856404; margin: 10px 0;">If you have existing complaint letter data, click below to migrate it to the new multi-PDF structure:</p>
                     <button id="migrationButton" onclick="migrateExistingData()" style="background: #f39c12; color: white;">Migrate Existing Data</button>
                     <button onclick="hideMigrationSection()" style="background: #95a5a6; color: white; margin-left: 10px;">Hide Migration</button>
                 `;
