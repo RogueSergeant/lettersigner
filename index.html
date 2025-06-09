@@ -531,12 +531,12 @@
                 // Load the PDF
                 const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
                 
-                // Add a new page for signatures
-                const page = pdfDoc.addPage();
-                const { width, height } = page.getSize();
+                // Add pages for signatures
+                let currentPage = pdfDoc.addPage();
+                let { width, height } = currentPage.getSize();
                 
-                // Add title
-                page.drawText('Signatures', {
+                // Add title to first page
+                currentPage.drawText('Signatures', {
                     x: 50,
                     y: height - 50,
                     size: 20,
@@ -545,16 +545,32 @@
 
                 let yPosition = height - 100;
                 const lineHeight = 80;
+                const minYPosition = 50;
 
-                for (let i = 0; i < signatures.length && yPosition > 50; i++) {
+                for (let i = 0; i < signatures.length; i++) {
                     const sig = signatures[i];
+                    
+                    // Check if we need a new page
+                    if (yPosition < minYPosition) {
+                        currentPage = pdfDoc.addPage();
+                        ({ width, height } = currentPage.getSize());
+                        yPosition = height - 50;
+                        
+                        // Add title to new page
+                        currentPage.drawText('Signatures (continued)', {
+                            x: 50,
+                            y: height - 30,
+                            size: 16,
+                            color: PDFLib.rgb(0, 0, 0)
+                        });
+                    }
                     
                     // Add signature image
                     try {
                         const signatureImageBytes = Uint8Array.from(atob(sig.signature.split(',')[1]), c => c.charCodeAt(0));
                         const signatureImage = await pdfDoc.embedPng(signatureImageBytes);
                         
-                        page.drawImage(signatureImage, {
+                        currentPage.drawImage(signatureImage, {
                             x: 50,
                             y: yPosition - 30,
                             width: 100,
@@ -565,21 +581,21 @@
                     }
 
                     // Add signature details
-                    page.drawText(`${sig.name}`, {
+                    currentPage.drawText(`${sig.name}`, {
                         x: 160,
                         y: yPosition - 10,
                         size: 12,
                         color: PDFLib.rgb(0, 0, 0)
                     });
 
-                    page.drawText(`Flat ${sig.flat}, ${sig.building}`, {
+                    currentPage.drawText(`Flat ${sig.flat}, ${sig.building}`, {
                         x: 160,
                         y: yPosition - 25,
                         size: 10,
                         color: PDFLib.rgb(0.3, 0.3, 0.3)
                     });
 
-                    page.drawText(`Signed: ${new Date(sig.timestamp).toLocaleDateString()}`, {
+                    currentPage.drawText(`Signed: ${new Date(sig.timestamp).toLocaleDateString()}`, {
                         x: 160,
                         y: yPosition - 40,
                         size: 8,
