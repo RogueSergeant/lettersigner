@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign the Formal Complaint</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f4f4;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+            margin-top: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        
+        .login-screen {
+            text-align: center;
+            padding: 40px 20px;
+        }
+        
+        .login-screen h1 {
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        input[type="password"], input[type="text"], input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        
+        button {
+            background: #3498db;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background: #2980b9;
+        }
+        
+        .admin-section {
+            background: #ecf0f1;
+            padding: 20px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        
+        .signature-canvas {
+            border: 2px solid #3498db;
+            border-radius: 4px;
+            background: white;
+            cursor: crosshair;
+            display: block;
+            margin: 10px auto;
+        }
+        
+        .signature-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        
+        .signatures-list {
+            margin-top: 30px;
+        }
+        
+        .signature-item {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #3498db;
+            border-radius: 4px;
+        }
+        
+        .error {
+            color: #e74c3c;
+            margin-top: 10px;
+        }
+        
+        .success {
+            color: #27ae60;
+            margin-top: 10px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .pdf-viewer {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        
+        .pdf-container {
+            position: relative;
+            width: 100%;
+            height: 600px;
+        }
+        
+        .pdf-embed {
+            width: 100%;
+            height: 100%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                padding: 15px;
+            }
+            
+            .signature-canvas {
+                width: 100%;
+                height: 200px;
+            }
+            
+            input[type="text"], input[type="password"] {
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Login Screen -->
+        <div id="loginScreen" class="login-screen">
+            <h1>Sign the Formal Complaint</h1>
+            <p>Please enter the password to access the petition:</p>
+            <div class="form-group">
+                <input type="password" id="passwordInput" placeholder="Enter password">
+            </div>
+            <button onclick="checkPassword()">Enter</button>
+            <div id="loginError" class="error hidden">Incorrect password. Please try again.</div>
+        </div>
+
+        <!-- Main App -->
+        <div id="mainApp" class="hidden">
+            <h1>Sign the Formal Complaint</h1>
+            
+            <!-- Admin Section -->
+            <div class="admin-section">
+                <h3>Admin Controls</h3>
+                <div class="form-group">
+                    <label for="pdfUpload">Upload Petition PDF:</label>
+                    <input type="file" id="pdfUpload" accept=".pdf" onchange="handlePDFUpload(event)">
+                </div>
+                <button onclick="downloadPetitionWithSignatures()">Download Petition with Signatures</button>
+                <div id="uploadStatus"></div>
+            </div>
+
+            <!-- PDF Viewer -->
+            <div id="pdfSection" class="hidden">
+                <h3>Current Letter</h3>
+                <iframe id="pdfViewer" class="pdf-viewer"></iframe>
+            </div>
+
+            <!-- Signature Section -->
+            <div class="signature-section">
+                <h3>Add Your Signature</h3>
+                <div class="form-group">
+                    <label>Draw your signature below:</label>
+                    <canvas id="signatureCanvas" class="signature-canvas" width="400" height="150"></canvas>
+                    <button onclick="clearSignature()">Clear Signature</button>
+                </div>
+                
+                <div class="form-group">
+                    <label for="signerName">Full Name:</label>
+                    <input type="text" id="signerName" placeholder="Enter your full name">
+                </div>
+                
+                <div class="form-group">
+                    <label for="flatNumber">Flat Number:</label>
+                    <input type="text" id="flatNumber" placeholder="Enter your flat number">
+                </div>
+                
+                <div class="form-group">
+                    <label for="building">Building:</label>
+                    <select id="building">
+                        <option value="">Select building</option>
+                        <option value="Brucite Court">Brucite Court</option>
+                        <option value="Solonite Court">Solonite Court</option>
+                        <option value="Granville Road">Granville Road</option>
+                    </select>
+                </div>
+                
+                <button onclick="submitSignature()">Submit Signature</button>
+                <div id="signatureStatus"></div>
+            </div>
+
+            <!-- Signatures List -->
+            <div class="signatures-list">
+                <h3>Signatures (<span id="signatureCount">0</span>)</h3>
+                <div id="signaturesList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include PDF-lib -->
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    
+    <!-- Include Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+    <script>
+        // Configuration - Passwords loaded from environment secrets
+        const SITE_PASSWORD = "{{SITE_PASSWORD}}"; // Will be replaced by GitHub Actions
+        const ADMIN_PASSWORD = "{{ADMIN_PASSWORD}}"; // Will be replaced by GitHub Actions
+        
+        // Firebase configuration - you'll need to replace with your own config
+        const firebaseConfig = {
+            apiKey: "AIzaSyDwauQPtjHF1bT0XNQpFkrv7Tu01fgULy0",
+            authDomain: "granvilleroad-c240c.firebaseapp.com",
+            databaseURL: "https://granvilleroad-c240c-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "granvilleroad-c240c",
+            storageBucket: "granvilleroad-c240c.firebasestorage.app",
+            messagingSenderId: "199438660747",
+            appId: "1:199438660747:web:7b4f8ecb5cde285852508e"
+        };
+
+        // Initialize Firebase
+        let database;
+        try {
+            firebase.initializeApp(firebaseConfig);
+            database = firebase.database();
+        } catch (error) {
+            console.warn("Firebase not configured properly. Using local storage fallback.");
+        }
+
+        // Global variables
+        let uploadedPDF = null;
+        let signatureCanvas;
+        let signatureContext;
+        let isDrawing = false;
+        let signatures = [];
+        let isAdmin = false;
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeSignatureCanvas();
+            loadSignatures();
+            loadUploadedPDF();
+        });
+
+        // Password protection
+        function checkPassword() {
+            const password = document.getElementById('passwordInput').value;
+            if (password === ADMIN_PASSWORD) {
+                isAdmin = true;
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('hidden');
+                document.getElementById('loginError').classList.add('hidden');
+                showAdminControls();
+            } else if (password === SITE_PASSWORD) {
+                isAdmin = false;
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('hidden');
+                document.getElementById('loginError').classList.add('hidden');
+                hideAdminControls();
+            } else {
+                document.getElementById('loginError').classList.remove('hidden');
+            }
+        }
+
+        function showAdminControls() {
+            document.querySelector('.admin-section').style.display = 'block';
+        }
+
+        function hideAdminControls() {
+            document.querySelector('.admin-section').style.display = 'none';
+        }
+
+        // Allow Enter key to submit password
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !document.getElementById('loginScreen').classList.contains('hidden')) {
+                checkPassword();
+            }
+        });
+
+        // PDF Upload handling
+        function handlePDFUpload(event) {
+            const file = event.target.files[0];
+            if (file && file.type === 'application/pdf') {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    uploadedPDF = e.target.result;
+                    savePDFToStorage(uploadedPDF);
+                    document.getElementById('pdfViewer').src = uploadedPDF;
+                    document.getElementById('pdfSection').classList.remove('hidden');
+                    document.getElementById('uploadStatus').innerHTML = '<span class="success">PDF uploaded successfully!</span>';
+                };
+                reader.readAsDataURL(file);
+            } else {
+                document.getElementById('uploadStatus').innerHTML = '<span class="error">Please select a valid PDF file.</span>';
+            }
+        }
+
+        // Save PDF to storage
+        function savePDFToStorage(pdfData) {
+            if (database) {
+                database.ref('petition/pdf').set(pdfData);
+            } else {
+                localStorage.setItem('petitionPDF', pdfData);
+            }
+        }
+
+        // Load uploaded PDF from storage
+        function loadUploadedPDF() {
+            if (database) {
+                database.ref('petition/pdf').once('value', (snapshot) => {
+                    const pdfData = snapshot.val();
+                    if (pdfData) {
+                        uploadedPDF = pdfData;
+                        document.getElementById('pdfViewer').src = uploadedPDF;
+                        document.getElementById('pdfSection').classList.remove('hidden');
+                    }
+                });
+            } else {
+                const stored = localStorage.getItem('petitionPDF');
+                if (stored) {
+                    uploadedPDF = stored;
+                    document.getElementById('pdfViewer').src = uploadedPDF;
+                    document.getElementById('pdfSection').classList.remove('hidden');
+                }
+            }
+        }
+
+        // Signature canvas initialization
+        function initializeSignatureCanvas() {
+            signatureCanvas = document.getElementById('signatureCanvas');
+            signatureContext = signatureCanvas.getContext('2d');
+            
+            signatureContext.strokeStyle = '#000';
+            signatureContext.lineWidth = 2;
+            signatureContext.lineCap = 'round';
+            
+            // Mouse events
+            signatureCanvas.addEventListener('mousedown', startDrawing);
+            signatureCanvas.addEventListener('mousemove', draw);
+            signatureCanvas.addEventListener('mouseup', stopDrawing);
+            signatureCanvas.addEventListener('mouseout', stopDrawing);
+            
+            // Touch events for mobile
+            signatureCanvas.addEventListener('touchstart', handleTouch);
+            signatureCanvas.addEventListener('touchmove', handleTouch);
+            signatureCanvas.addEventListener('touchend', stopDrawing);
+        }
+
+        function startDrawing(e) {
+            isDrawing = true;
+            const rect = signatureCanvas.getBoundingClientRect();
+            signatureContext.beginPath();
+            signatureContext.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            const rect = signatureCanvas.getBoundingClientRect();
+            signatureContext.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+            signatureContext.stroke();
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+        }
+
+        function handleTouch(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent(e.type === 'touchstart' ? 'mousedown' : 
+                                            e.type === 'touchmove' ? 'mousemove' : 'mouseup', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            signatureCanvas.dispatchEvent(mouseEvent);
+        }
+
+        function clearSignature() {
+            signatureContext.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
+        }
+
+        // Signature submission
+        function submitSignature() {
+            const name = document.getElementById('signerName').value.trim();
+            const flat = document.getElementById('flatNumber').value.trim();
+            const building = document.getElementById('building').value;
+            
+            if (!name || !flat || !building) {
+                document.getElementById('signatureStatus').innerHTML = '<span class="error">Please fill in all fields.</span>';
+                return;
+            }
+
+            // Check if canvas has content
+            const canvasData = signatureCanvas.toDataURL();
+            const isBlankCanvas = canvasData === document.createElement('canvas').toDataURL();
+            
+            if (isBlankCanvas) {
+                document.getElementById('signatureStatus').innerHTML = '<span class="error">Please provide a signature.</span>';
+                return;
+            }
+
+            const signature = {
+                id: Date.now().toString(),
+                name: name,
+                flat: flat,
+                building: building,
+                signature: canvasData,
+                timestamp: new Date().toISOString()
+            };
+
+            // Save signature
+            saveSignature(signature);
+            
+            // Clear form
+            clearSignature();
+            document.getElementById('signerName').value = '';
+            document.getElementById('flatNumber').value = '';
+            document.getElementById('building').value = '';
+            
+            document.getElementById('signatureStatus').innerHTML = '<span class="success">Signature submitted successfully!</span>';
+        }
+
+        // Save signature to Firebase or local storage
+        function saveSignature(signature) {
+            if (database) {
+                database.ref('signatures/' + signature.id).set(signature);
+            } else {
+                // Fallback to local storage
+                signatures.push(signature);
+                localStorage.setItem('petitionSignatures', JSON.stringify(signatures));
+                displaySignatures();
+            }
+        }
+
+        // Load signatures
+        function loadSignatures() {
+            if (database) {
+                database.ref('signatures').on('value', (snapshot) => {
+                    signatures = [];
+                    snapshot.forEach((childSnapshot) => {
+                        signatures.push(childSnapshot.val());
+                    });
+                    displaySignatures();
+                });
+            } else {
+                // Load from local storage
+                const stored = localStorage.getItem('petitionSignatures');
+                if (stored) {
+                    signatures = JSON.parse(stored);
+                    displaySignatures();
+                }
+            }
+        }
+
+        // Display signatures
+        function displaySignatures() {
+            const container = document.getElementById('signaturesList');
+            const count = document.getElementById('signatureCount');
+            
+            count.textContent = signatures.length;
+            
+            container.innerHTML = signatures.map(sig => `
+                <div class="signature-item">
+                    <strong>${sig.name}</strong><br>
+                    Flat ${sig.flat}, ${sig.building}<br>
+                    <small>Signed: ${new Date(sig.timestamp).toLocaleString()}</small>
+                </div>
+            `).join('');
+        }
+
+        // Download petition with signatures
+        async function downloadPetitionWithSignatures() {
+            if (!isAdmin) {
+                alert('Only administrators can download the petition with signatures.');
+                return;
+            }
+
+            if (!uploadedPDF) {
+                alert('Please upload a petition PDF first.');
+                return;
+            }
+
+            if (signatures.length === 0) {
+                alert('No signatures to add to the petition.');
+                return;
+            }
+
+            try {
+                // Convert base64 to array buffer
+                const pdfBytes = Uint8Array.from(atob(uploadedPDF.split(',')[1]), c => c.charCodeAt(0));
+                
+                // Load the PDF
+                const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
+                
+                // Add a new page for signatures
+                const page = pdfDoc.addPage();
+                const { width, height } = page.getSize();
+                
+                // Add title
+                page.drawText('Petition Signatures', {
+                    x: 50,
+                    y: height - 50,
+                    size: 20,
+                    color: PDFLib.rgb(0, 0, 0)
+                });
+
+                let yPosition = height - 100;
+                const lineHeight = 80;
+
+                for (let i = 0; i < signatures.length && yPosition > 50; i++) {
+                    const sig = signatures[i];
+                    
+                    // Add signature image
+                    try {
+                        const signatureImageBytes = Uint8Array.from(atob(sig.signature.split(',')[1]), c => c.charCodeAt(0));
+                        const signatureImage = await pdfDoc.embedPng(signatureImageBytes);
+                        
+                        page.drawImage(signatureImage, {
+                            x: 50,
+                            y: yPosition - 30,
+                            width: 100,
+                            height: 30
+                        });
+                    } catch (e) {
+                        console.warn('Could not embed signature image:', e);
+                    }
+
+                    // Add signature details
+                    page.drawText(`${sig.name}`, {
+                        x: 160,
+                        y: yPosition - 10,
+                        size: 12,
+                        color: PDFLib.rgb(0, 0, 0)
+                    });
+
+                    page.drawText(`Flat ${sig.flat}, ${sig.building}`, {
+                        x: 160,
+                        y: yPosition - 25,
+                        size: 10,
+                        color: PDFLib.rgb(0.3, 0.3, 0.3)
+                    });
+
+                    page.drawText(`Signed: ${new Date(sig.timestamp).toLocaleDateString()}`, {
+                        x: 160,
+                        y: yPosition - 40,
+                        size: 8,
+                        color: PDFLib.rgb(0.5, 0.5, 0.5)
+                    });
+
+                    yPosition -= lineHeight;
+                }
+
+                // Save and download
+                const pdfBytesWithSigs = await pdfDoc.save();
+                const blob = new Blob([pdfBytesWithSigs], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `petition-with-signatures-${new Date().toISOString().split('T')[0]}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                alert('Error generating PDF with signatures. Please try again.');
+            }
+        }
+    </script>
+</body>
+</html>
