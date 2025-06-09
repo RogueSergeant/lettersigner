@@ -21,23 +21,38 @@ A secure petition website where residents can sign a formal complaint digitally.
 3. Add the following secrets:
    - `SITE_PASSWORD`: Password for regular users to access the site
    - `ADMIN_PASSWORD`: Password for admin users to upload/download PDFs
+   - `FIREBASE_API_KEY`: Your Firebase API key
+   - `FIREBASE_AUTH_DOMAIN`: Your Firebase auth domain
+   - `FIREBASE_DATABASE_URL`: Your Firebase database URL
+   - `FIREBASE_PROJECT_ID`: Your Firebase project ID
+   - `FIREBASE_STORAGE_BUCKET`: Your Firebase storage bucket
+   - `FIREBASE_MESSAGING_SENDER_ID`: Your Firebase messaging sender ID
+   - `FIREBASE_APP_ID`: Your Firebase app ID
 
 ### 2. Set up Firebase (optional but recommended)
 
 1. Go to [Firebase Console](https://console.firebase.google.com/)
 2. Create a new project
 3. Enable Realtime Database
-4. Set database rules to allow read/write (for testing):
+4. **IMPORTANT: Set secure database rules**:
    ```json
    {
      "rules": {
-       ".read": true,
-       ".write": true
+       "signatures": {
+         ".read": true,
+         ".write": "newData.hasChildren(['name', 'flat', 'building', 'signature', 'timestamp']) && newData.val().name.length > 0"
+       },
+       "petition": {
+         "pdf": {
+           ".read": true,
+           ".write": false
+         }
+       }
      }
    }
    ```
 5. Get your config from Project Settings > General > Web Apps
-6. Replace the `firebaseConfig` object in `index.html`
+6. Add each Firebase config value as a GitHub secret (see step 1 above)
 
 ### 3. Deploy to GitHub Pages
 
