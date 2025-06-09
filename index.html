@@ -316,6 +316,14 @@
         // Password protection
         function checkPassword() {
             const password = document.getElementById('passwordInput').value;
+            
+            // Debug: Log password values (remove this after debugging)
+            console.log('Entered password:', password);
+            console.log('ADMIN_PASSWORD:', ADMIN_PASSWORD);
+            console.log('SITE_PASSWORD:', SITE_PASSWORD);
+            console.log('Admin match:', password === ADMIN_PASSWORD);
+            console.log('Site match:', password === SITE_PASSWORD);
+            
             if (password === ADMIN_PASSWORD) {
                 isAdmin = true;
                 document.getElementById('loginScreen').classList.add('hidden');
