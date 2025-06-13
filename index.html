@@ -372,7 +372,8 @@
                         title: title,
                         data: pdfData,
                         uploadDate: new Date().toISOString(),
-                        signatureCount: 0
+                        signatureCount: 0,
+                        hidden: false
                     };
                     
                     savePDFToStorage(pdfId, pdfInfo);
@@ -427,9 +428,13 @@
             
             // Add options for each PDF
             Object.values(availablePDFs).forEach(pdf => {
-                const userOption = new Option(pdf.title, pdf.id);
+                // Only show non-hidden PDFs to users
+                if (!pdf.hidden) {
+                    const userOption = new Option(pdf.title, pdf.id);
+                    userSelect.add(userOption);
+                }
+                // Show all PDFs to admin
                 const adminOption = new Option(pdf.title, pdf.id);
-                userSelect.add(userOption);
                 adminSelect.add(adminOption);
             });
         }
@@ -443,11 +448,13 @@
             
             Object.values(availablePDFs).forEach(pdf => {
                 const div = document.createElement('div');
-                div.style.cssText = 'border: 1px solid #ddd; padding: 10px; margin: 5px 0; border-radius: 4px;';
+                const isHidden = pdf.hidden || false;
+                div.style.cssText = `border: 1px solid #ddd; padding: 10px; margin: 5px 0; border-radius: 4px; ${isHidden ? 'background: #f8f9fa; opacity: 0.7;' : ''}`;
                 div.innerHTML = `
-                    <strong>${pdf.title}</strong><br>
+                    <strong>${pdf.title}</strong>${isHidden ? ' <span style="color: #6c757d; font-size: 12px;">(Hidden)</span>' : ''}<br>
                     <small>Uploaded: ${new Date(pdf.uploadDate).toLocaleDateString()}</small><br>
                     <small>Signatures: <span id="count-${pdf.id}">${pdf.signatureCount || 0}</span></small><br>
+                    <button onclick="togglePDFVisibility('${pdf.id}')" style="margin-top: 5px; background: ${isHidden ? '#28a745' : '#ffc107'}; color: ${isHidden ? 'white' : 'black'}; margin-right: 5px;">${isHidden ? 'Unhide' : 'Hide'}</button>
                     <button onclick="deletePDF('${pdf.id}')" style="margin-top: 5px; background: #e74c3c; color: white;">Delete</button>
                 `;
                 listDiv.appendChild(div);
@@ -499,6 +506,30 @@
                 
                 loadAvailablePDFs();
                 loadSignatures();
+            }
+        }
+
+        // Toggle PDF visibility (admin only)
+        function togglePDFVisibility(pdfId) {
+            if (!isAdmin) return;
+            
+            const pdf = availablePDFs[pdfId];
+            if (!pdf) return;
+
+            const newHiddenStatus = !pdf.hidden;
+            const updatedPDF = { ...pdf, hidden: newHiddenStatus };
+
+            if (database) {
+                database.ref('petitions/' + pdfId).set(updatedPDF);
+            } else {
+                let storedPDFs = JSON.parse(localStorage.getItem('petitionPDFs') || '{}');
+                storedPDFs[pdfId] = updatedPDF;
+                localStorage.setItem('petitionPDFs', JSON.stringify(storedPDFs));
+                
+                // Update local availablePDFs and refresh display
+                availablePDFs[pdfId] = updatedPDF;
+                updatePDFSelectors();
+                updateAdminPDFList();
             }
         }
 
